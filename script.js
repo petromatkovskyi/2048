@@ -16,10 +16,17 @@ grid.randomEmptyCell().tile = new Tile(gameBoard);
 setupInput();
 
 function setupInput() {
+  gameBoard.addEventListener('touchstart', touchStartHandler, {
+    once: true,
+    passive: false,
+  });
+
   window.addEventListener('keydown', handleInput, { once: true });
 }
 
 async function handleInput(e) {
+  console.log(e.key);
+
   switch (e.key) {
     case 'ArrowUp':
       if (!canMoveUp()) {
@@ -101,8 +108,6 @@ async function slideTiles(cells) {
         if (lastValidCell != null) {
           promises.push(cell.tile.waitForTransition());
           if (lastValidCell.tile != null) {
-            console.log({ cell: cell.tile });
-
             lastValidCell.mergeTile = cell.tile;
           } else {
             lastValidCell.tile = cell.tile;
@@ -120,13 +125,7 @@ async function slideTiles(cells) {
       if (cell.mergeTile == null || cell.tile == null) return sum;
       return sum + cell.mergeTile.value + cell.tile.value;
     }, 0);
-  console.log(increaseScore);
 
-  // cells.forEach((cell) => {
-  //   // console.log(cell);
-
-  //   cell.forEach((i) => console.log(i.mergeTiles()));
-  // });
   state.updateScore(increaseScore);
   return increaseScore;
 }
@@ -153,4 +152,51 @@ function canMove(cells) {
       return moveToCell.canAccept(cell.tile);
     });
   });
+}
+
+function handleTouchMove(e) {
+  e.preventDefault();
+}
+
+function touchStartHandler(e) {
+  e.preventDefault();
+  const THRESHOLD_DISTANCE = 75;
+  const ALLOWED_GESTURE_TIME = 500;
+  let startTouchData;
+
+  startTouchData = e.changedTouches[0];
+  const startTime = new Date();
+
+  gameBoard.addEventListener('touchmove', handleTouchMove, {
+    passive: false,
+  });
+
+  gameBoard.addEventListener(
+    'touchend',
+    async (e) => {
+      e.preventDefault();
+      gameBoard.removeEventListener('touchmove', handleTouchMove);
+
+      const endTouchData = e.changedTouches[0];
+
+      if (new Date() - startTime > ALLOWED_GESTURE_TIME) {
+        setupInput();
+        return;
+      }
+
+      const distanceX = endTouchData.pageX - startTouchData.pageX;
+      const distanceY = endTouchData.pageY - startTouchData.pageY;
+
+      console.log({ distanceY: Math.abs(distanceY >= THRESHOLD_DISTANCE) });
+
+      if (Math.abs(distanceX) >= THRESHOLD_DISTANCE) {
+        await handleInput(distanceX > 0 ? { key: 'ArrowRight' } : { key: 'ArrowLeft' });
+      } else if (Math.abs(distanceY) >= THRESHOLD_DISTANCE) {
+        console.log(distanceY > 0);
+        await handleInput(distanceY > 0 ? { key: 'ArrowDown' } : { key: 'ArrowUp' });
+      }
+      setupInput();
+    },
+    { once: true }
+  );
 }
